@@ -62,17 +62,39 @@ func readInstruction(instruction Instruction, pc *int, registers *[32]int, cycle
 		registers[instruction.destination] = registers[instruction.r1] >> registers[instruction.r2]
 		//STUR
 	case 1984:
-		dataPush := [8]int{registers[instruction.destination], 0, 0, 0, 0, 0, 0, 0}
-		*dataset = append(*dataset, Data{registers[instruction.r1] + (instruction.immediate * 4), dataPush})
+		if findIndex(registers[instruction.r1]+(instruction.immediate*4), *dataset) != -1 {
+			newData := *dataset
+			newData[findIndex(registers[instruction.r1]+(instruction.immediate*4), *dataset)].value = registers[instruction.destination]
+			*dataset = newData
+		} else {
+			if readStart {
+				startingAdd = registers[instruction.r1] + (instruction.immediate * 4)
+				readStart = false
+			}
+			address := registers[instruction.r1] + (instruction.immediate * 4)
+			noOffsetAddress := 0
+			for i := address; i > address-32; i -= 4 {
+				temp := i - startingAdd
+				if temp%32 == 0 {
+					noOffsetAddress = temp
+				}
+			}
+			noOffsetAddress += startingAdd
+			for i := 0; i < 8; i++ {
+				*dataset = append(*dataset, Data{noOffsetAddress + (i * 4), 0})
+			}
+			newData := *dataset
+			newData[findIndex(registers[instruction.r1]+(instruction.immediate*4), *dataset)].value = registers[instruction.destination]
+			*dataset = newData
+		}
 		//LDUR
 	case 1986:
-		//loop through dataset to find address
-		targetAddress := registers[instruction.r1] + (instruction.immediate * 4)
-		datasetGrab := *dataset
-		for i := range datasetGrab {
-			if datasetGrab[i].address == targetAddress {
-				registers[instruction.destination] = datasetGrab[i].info[0]
-			}
+		newData := *dataset
+		indexForLoad := findIndex(registers[instruction.r1]+(instruction.immediate*4), *dataset)
+		if indexForLoad != -1 {
+			registers[instruction.destination] = newData[indexForLoad].value
+		} else {
+			registers[instruction.destination] = 0
 		}
 		//BREAK
 	case 2038:
@@ -139,22 +161,28 @@ func printSim(instruction Instruction, registers [32]int, cycle int, simFile *os
 		return
 	}
 	for i := range dataset {
-		_, err = io.WriteString(simFile, strconv.Itoa(dataset[i].address)+":")
-		if err != nil {
-			return
+		if i%8 == 0 {
+			_, err = io.WriteString(simFile, strconv.Itoa(dataset[i].address)+": ")
 		}
-		for j := 0; j < 8; j++ {
-			_, err = io.WriteString(simFile, "\t"+strconv.Itoa(dataset[i].info[j]))
-			if err != nil {
-				return
-			}
+		_, err = io.WriteString(simFile, "\t"+strconv.Itoa(dataset[i].value))
+		if i%8 == 7 {
+			_, err = io.WriteString(simFile, "\n")
 		}
-		_, err = io.WriteString(simFile, "\n")
 		if err != nil {
 			return
 		}
 	}
 
+}
+
+func findIndex(target int, dataset []Data) int {
+	retInt := -1
+	for i := range dataset {
+		if dataset[i].address == target {
+			retInt = i
+		}
+	}
+	return retInt
 }
 
 func sim(simFile *os.File) {

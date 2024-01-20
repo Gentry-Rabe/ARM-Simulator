@@ -20,7 +20,7 @@ type Instruction struct {
 }
 type Data struct {
 	address int
-	info    [8]int
+	value   int
 }
 
 // dynamic array keeping track of opcodes, registers, and immediate values
@@ -42,6 +42,9 @@ var readingData = false
 
 // array for reading in machine code
 var txtlines []string
+
+var readStart = true
+var startingAdd = -1
 
 func main() {
 	//grab file name pointers
@@ -114,15 +117,7 @@ func main() {
 
 /*
 
-func findIndex(target int, dataset []Data) int {
-	retInt := -1
-	for i := range dataset {
-		if dataset[i].address == target {
-			retInt = i
-		}
-	}
-	return retInt
-}
+
 
 //prints data
 _, err = io.WriteString(simFile, "Data:\n")

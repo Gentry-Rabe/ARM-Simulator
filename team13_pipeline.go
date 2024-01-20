@@ -181,45 +181,42 @@ func memPhase() {
 	instruction := preMEM[0]
 	if instruction.opCode != -1 {
 		switch instruction.opCode {
-		//reorganize your code, dipshit!
-		/*
-			//STUR
-				case 1984:
-					if findIndex(registers[instruction.r1]+(instruction.immediate*4), *dataset) != -1 {
-						newData := *dataset
-						newData[findIndex(registers[instruction.r1]+(instruction.immediate*4), *dataset)].value = registers[instruction.destination]
-						*dataset = newData
-					} else {
-						if *readStart {
-							*startingAdd = registers[instruction.r1] + (instruction.immediate * 4)
-							*readStart = false
-						}
-						address := registers[instruction.r1] + (instruction.immediate * 4)
-						noOffsetAddress := 0
-						for i := address; i > address-32; i -= 4 {
-							temp := i - *startingAdd
-							if temp%32 == 0 {
-								noOffsetAddress = temp
-							}
-						}
-						noOffsetAddress += *startingAdd
-						for i := 0; i < 8; i++ {
-							*dataset = append(*dataset, Data{noOffsetAddress + (i * 4), 0})
-						}
-						newData := *dataset
-						newData[findIndex(registers[instruction.r1]+(instruction.immediate*4), *dataset)].value = registers[instruction.destination]
-						*dataset = newData
+		//STUR
+		case 1984:
+			if findIndex(registers[instruction.r1]+(instruction.immediate*4), dataset) != -1 {
+				newData := dataset
+				newData[findIndex(registers[instruction.r1]+(instruction.immediate*4), dataset)].value = registers[instruction.destination]
+				dataset = newData
+			} else {
+				if readStart {
+					startingAdd = registers[instruction.r1] + (instruction.immediate * 4)
+					readStart = false
+				}
+				address := registers[instruction.r1] + (instruction.immediate * 4)
+				noOffsetAddress := 0
+				for i := address; i > address-32; i -= 4 {
+					temp := i - startingAdd
+					if temp%32 == 0 {
+						noOffsetAddress = temp
 					}
-					//LDUR
-				case 1986:
-					newData := *dataset
-					indexForLoad := findIndex(registers[instruction.r1]+(instruction.immediate*4), *dataset)
-					if indexForLoad != -1 {
-						registers[instruction.destination] = newData[indexForLoad].value
-					} else {
-						registers[instruction.destination] = 0
-					}
-		*/
+				}
+				noOffsetAddress += startingAdd
+				for i := 0; i < 8; i++ {
+					dataset = append(dataset, Data{noOffsetAddress + (i * 4), 0})
+				}
+				newData := dataset
+				newData[findIndex(registers[instruction.r1]+(instruction.immediate*4), dataset)].value = registers[instruction.destination]
+				dataset = newData
+			}
+			//LDUR
+		case 1986:
+			newData := dataset
+			indexForLoad := findIndex(registers[instruction.r1]+(instruction.immediate*4), dataset)
+			if indexForLoad != -1 {
+				instruction.result = newData[indexForLoad].value
+			} else {
+				instruction.result = 0
+			}
 		}
 		postMEM[0] = instruction
 		preMEM[0] = Instruction{-1, -1, -1, -1, 0, 0, 0, "", 0}
@@ -362,7 +359,7 @@ func printPipeline(pipelineFile *os.File) {
 			return
 		}
 		for j := 0; j < 8; j++ {
-			_, err = io.WriteString(pipelineFile, "\t"+strconv.Itoa(dataset[i].info[j]))
+			_, err = io.WriteString(pipelineFile, "\t"+strconv.Itoa(dataset[i].value))
 			if err != nil {
 				return
 			}
