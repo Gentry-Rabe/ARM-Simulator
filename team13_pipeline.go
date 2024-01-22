@@ -45,7 +45,8 @@ func instructionFetch() {
 						lineCounter += line.immediate
 						break
 					}
-					//conditional branches (CBZ, CBNZ respectively)
+					//conditional branches
+					//CBZ
 					if line.opCode == 180 {
 						check := true
 						for _, element := range postALU {
@@ -68,6 +69,7 @@ func instructionFetch() {
 						}
 						break
 					}
+					//CBNZ
 					if line.opCode == 181 {
 						check := true
 						for _, element := range postALU {
@@ -180,16 +182,16 @@ func memPhase() {
 		switch instruction.opCode {
 		//STUR
 		case 1984:
-			if findIndex(registers[instruction.r1]+(instruction.immediate*4), dataset) != -1 {
-				newData := dataset
-				newData[findIndex(registers[instruction.r1]+(instruction.immediate*4), dataset)].value = registers[instruction.destination]
-				dataset = newData
+			if findIndex(registers[instruction.r2]+(instruction.immediate*4), pipelineDataset) != -1 {
+				newData := pipelineDataset
+				newData[findIndex(registers[instruction.r2]+(instruction.immediate*4), pipelineDataset)].value = registers[instruction.r1]
+				pipelineDataset = newData
 			} else {
 				if readStart {
-					startingAdd = registers[instruction.r1] + (instruction.immediate * 4)
+					startingAdd = registers[instruction.r2] + (instruction.immediate * 4)
 					readStart = false
 				}
-				address := registers[instruction.r1] + (instruction.immediate * 4)
+				address := registers[instruction.r2] + (instruction.immediate * 4)
 				noOffsetAddress := 0
 				for i := address; i > address-32; i -= 4 {
 					temp := i - startingAdd
@@ -199,16 +201,16 @@ func memPhase() {
 				}
 				noOffsetAddress += startingAdd
 				for i := 0; i < 8; i++ {
-					dataset = append(dataset, Data{noOffsetAddress + (i * 4), 0})
+					pipelineDataset = append(pipelineDataset, Data{noOffsetAddress + (i * 4), 0})
 				}
-				newData := dataset
-				newData[findIndex(registers[instruction.r1]+(instruction.immediate*4), dataset)].value = registers[instruction.destination]
-				dataset = newData
+				newData := pipelineDataset
+				newData[findIndex(registers[instruction.r2]+(instruction.immediate*4), pipelineDataset)].value = registers[instruction.r1]
+				pipelineDataset = newData
 			}
 			//LDUR
 		case 1986:
-			newData := dataset
-			indexForLoad := findIndex(registers[instruction.r1]+(instruction.immediate*4), dataset)
+			newData := pipelineDataset
+			indexForLoad := findIndex(registers[instruction.r1]+(instruction.immediate*4), pipelineDataset)
 			if indexForLoad != -1 {
 				instruction.result = newData[indexForLoad].value
 			} else {
@@ -223,15 +225,18 @@ func memPhase() {
 
 // writes next in post-ALU/post-MEM queue into registers
 func writeBack() {
-	if postALU[0].destination != -1 {
+	if postALU[0].opCode != -1 {
 		registers[postALU[0].destination] = postALU[0].result
 		postALU[0] = Instruction{-1, -1, -1, -1, 0, 0, 0, "", 0}
 		postALU = shiftArray(postALU)
 	}
-	if postMEM[0].destination != -1 {
+	if postMEM[0].opCode != -1 && postMEM[0].opCode != 1984 {
 		registers[postMEM[0].destination] = postMEM[0].result
 		postMEM[0] = Instruction{-1, -1, -1, -1, 0, 0, 0, "", 0}
-		postALU = shiftArray(postMEM)
+		postMEM = shiftArray(postMEM)
+	} else if postMEM[0].opCode == 1984 {
+		postMEM[0] = Instruction{-1, -1, -1, -1, 0, 0, 0, "", 0}
+		postMEM = shiftArray(postMEM)
 	}
 }
 
@@ -346,22 +351,19 @@ func printPipeline(pipelineFile *os.File) {
 	   Entry 0:[(0,0,0)<0,0>]
 	   Entry 1:[(0,0,0)<0,0>]
 	*/
+	//=======Data=======
 	_, err = io.WriteString(pipelineFile, "Data:\n")
 	if err != nil {
 		return
 	}
-	for i := range dataset {
-		_, err = io.WriteString(pipelineFile, strconv.Itoa(dataset[i].address)+":")
-		if err != nil {
-			return
+	for i := range pipelineDataset {
+		if i%8 == 0 {
+			_, err = io.WriteString(pipelineFile, strconv.Itoa(pipelineDataset[i].address)+": ")
 		}
-		for j := 0; j < 8; j++ {
-			_, err = io.WriteString(pipelineFile, "\t"+strconv.Itoa(dataset[i].value))
-			if err != nil {
-				return
-			}
+		_, err = io.WriteString(pipelineFile, "\t"+strconv.Itoa(pipelineDataset[i].value))
+		if i%8 == 7 {
+			_, err = io.WriteString(pipelineFile, "\n")
 		}
-		_, err = io.WriteString(pipelineFile, "\n")
 		if err != nil {
 			return
 		}
@@ -370,23 +372,27 @@ func printPipeline(pipelineFile *os.File) {
 
 // checks to see if a register is currently being used by another function, in order to prevent data hazards
 func checkDataHazards(register int) bool {
+	ret := false
 	for _, element := range preIssue {
-		if register == element.destination && register != -1 {
-			return true
+		if register == element.destination {
+			ret = true
 		}
 	}
 	for _, element := range preALU {
-		if register == element.destination && register != -1 {
-			return true
+		if register == element.destination {
+			ret = true
 		}
 	}
 	for _, element := range preMEM {
-		if register == element.destination && register != -1 {
-			return true
+		if register == element.destination {
+			ret = true
 		}
 	}
+	if register == -1 {
+		ret = false
+	}
 	//no need to check post-ALU and post-MEM, they can be written back and accessed in the same cycle
-	return false
+	return ret
 }
 
 // shifts data in arrays up to maintain FIFO procedure - length: 4 arrays only
@@ -411,6 +417,7 @@ var running = true
 var breakCalled = false
 var cycle = 1
 var lineCounter = 0
+var pipelineDataset = make([]Data, 0)
 
 // pipeline queues
 var preIssue = []Instruction{
@@ -443,16 +450,16 @@ func pipeline(pipelineFile *os.File) {
 		0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0,
 	}
-	dataset = make([]Data, 0)
+	readStart = true
 	//running code for pipeline simulator. loops until end of code, then breaks
 	for {
 		if running {
-			printPipeline(pipelineFile)
 			writeBack()
 			memPhase()
 			aluPhase()
 			issueUnit()
 			instructionFetch()
+			printPipeline(pipelineFile)
 			cycle++
 			if breakCalled && preIssue[0].opCode == -1 && postALU[0].opCode == -1 && postMEM[0].opCode == -1 {
 				running = false

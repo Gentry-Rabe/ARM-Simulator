@@ -62,16 +62,16 @@ func readInstruction(instruction Instruction, pc *int, registers *[32]int, cycle
 		registers[instruction.destination] = registers[instruction.r1] >> registers[instruction.r2]
 		//STUR
 	case 1984:
-		if findIndex(registers[instruction.r1]+(instruction.immediate*4), *dataset) != -1 {
+		if findIndex(registers[instruction.r2]+(instruction.immediate*4), *dataset) != -1 {
 			newData := *dataset
-			newData[findIndex(registers[instruction.r1]+(instruction.immediate*4), *dataset)].value = registers[instruction.destination]
+			newData[findIndex(registers[instruction.r2]+(instruction.immediate*4), *dataset)].value = registers[instruction.r1]
 			*dataset = newData
 		} else {
 			if readStart {
-				startingAdd = registers[instruction.r1] + (instruction.immediate * 4)
+				startingAdd = registers[instruction.r2] + (instruction.immediate * 4)
 				readStart = false
 			}
-			address := registers[instruction.r1] + (instruction.immediate * 4)
+			address := registers[instruction.r2] + (instruction.immediate * 4)
 			noOffsetAddress := 0
 			for i := address; i > address-32; i -= 4 {
 				temp := i - startingAdd
@@ -84,7 +84,7 @@ func readInstruction(instruction Instruction, pc *int, registers *[32]int, cycle
 				*dataset = append(*dataset, Data{noOffsetAddress + (i * 4), 0})
 			}
 			newData := *dataset
-			newData[findIndex(registers[instruction.r1]+(instruction.immediate*4), *dataset)].value = registers[instruction.destination]
+			newData[findIndex(registers[instruction.r2]+(instruction.immediate*4), *dataset)].value = registers[instruction.r1]
 			*dataset = newData
 		}
 		//LDUR
@@ -175,10 +175,10 @@ func printSim(instruction Instruction, registers [32]int, cycle int, simFile *os
 
 }
 
-func findIndex(target int, dataset []Data) int {
+func findIndex(target int, funcDataset []Data) int {
 	retInt := -1
-	for i := range dataset {
-		if dataset[i].address == target {
+	for i := range funcDataset {
+		if funcDataset[i].address == target {
 			retInt = i
 		}
 	}
