@@ -104,9 +104,6 @@ func issueUnit() {
 			break
 		}
 		line := preIssue[i]
-		if line.opCode == -1 {
-			continue
-		}
 		if line.opCode == 1984 || line.opCode == 1986 {
 			//memory operations, handled by MEM
 			if preMEM[0].opCode == -1 {
@@ -118,7 +115,7 @@ func issueUnit() {
 				preIssue[i] = Instruction{-1, -1, -1, -1, 0, 0, 0, "", 0}
 				numInstructionsIssued++
 			}
-		} else {
+		} else if line.opCode != -1 {
 			//arithmetic or logical operations, handled by ALU
 			if preALU[0].opCode == -1 {
 				preALU[0] = line
@@ -131,7 +128,7 @@ func issueUnit() {
 			}
 		}
 	}
-	shiftArray(preIssue)
+	preIssue = shiftArray(preIssue)
 }
 
 // Execute pipeline phase. Handles all non-MEM operations and pushes to WB queue if needed.
@@ -172,7 +169,7 @@ func aluPhase() {
 		}
 		postALU[0] = instruction
 		preALU[0] = Instruction{-1, -1, -1, -1, 0, 0, 0, "", 0}
-		shiftArray(preALU)
+		preALU = shiftArray(preALU)
 	}
 }
 
@@ -220,7 +217,7 @@ func memPhase() {
 		}
 		postMEM[0] = instruction
 		preMEM[0] = Instruction{-1, -1, -1, -1, 0, 0, 0, "", 0}
-		shiftArray(preMEM)
+		preMEM = shiftArray(preMEM)
 	}
 }
 
@@ -229,12 +226,12 @@ func writeBack() {
 	if postALU[0].destination != -1 {
 		registers[postALU[0].destination] = postALU[0].result
 		postALU[0] = Instruction{-1, -1, -1, -1, 0, 0, 0, "", 0}
-		shiftArray(postALU)
+		postALU = shiftArray(postALU)
 	}
 	if postMEM[0].destination != -1 {
 		registers[postMEM[0].destination] = postMEM[0].result
 		postMEM[0] = Instruction{-1, -1, -1, -1, 0, 0, 0, "", 0}
-		shiftArray(postMEM)
+		postALU = shiftArray(postMEM)
 	}
 }
 
@@ -394,21 +391,19 @@ func checkDataHazards(register int) bool {
 
 // shifts data in arrays up to maintain FIFO procedure - length: 4 arrays only
 func shiftArray(array []Instruction) []Instruction {
-	//find how far data needs to be shifted
-	offset := 0
-	for i, element := range array {
+	nArray := make([]Instruction, 0)
+	valueIndex := 0
+	for _, element := range array {
 		if element.opCode != -1 {
-			offset = i
-			break
+			nArray = append(nArray, element)
+		} else {
+			valueIndex++
 		}
 	}
-	for i := 0; i < len(array)-offset; i++ {
-		array[i] = array[i+offset]
-		if i < len(array)-1 {
-			array[i+1] = Instruction{-1, -1, -1, -1, 0, 0, 0, "", 0}
-		}
+	for i := 0; i < valueIndex; i++ {
+		nArray = append(nArray, Instruction{-1, -1, -1, -1, 0, 0, 0, "", 0})
 	}
-	return array
+	return nArray
 }
 
 // global pipeline variables
