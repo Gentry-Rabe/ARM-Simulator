@@ -129,7 +129,7 @@ func getOpCode(input string, count int, readingData *bool, asmCode *[]Instructio
 
 					case opcode == 1984:
 						retString = input[0:11] + " " + input[11:20] + " " + input[20:22] + " " + input[22:27] + " " + input[27:32] + "\t" + strconv.Itoa(count) + "\tSTUR\tR" + strconv.Itoa(binToDec(input[27:32])) + ", [R" + strconv.Itoa(binToDec(input[22:27])) + ", #" + strconv.Itoa(binToDec(input[11:20])) + "]\n"
-						*asmCode = append(*asmCode, Instruction{1984, binToDec(input[27:32]), binToDec(input[22:27]), -1, binToDec(input[11:20]), 0, 0, "STUR\tR" + strconv.Itoa(binToDec(input[27:32])) + ", [R" + strconv.Itoa(binToDec(input[22:27])) + ", #" + strconv.Itoa(binToDec(input[11:20])) + "]", 0})
+						*asmCode = append(*asmCode, Instruction{1984, -1, binToDec(input[27:32]), binToDec(input[22:27]), binToDec(input[11:20]), 0, 0, "STUR\tR" + strconv.Itoa(binToDec(input[27:32])) + ", [R" + strconv.Itoa(binToDec(input[22:27])) + ", #" + strconv.Itoa(binToDec(input[11:20])) + "]", 0})
 
 					case opcode == 1986:
 						retString = input[0:11] + " " + input[11:20] + " " + input[20:22] + " " + input[22:27] + " " + input[27:32] + "\t" + strconv.Itoa(count) + "\tLDUR\tR" + strconv.Itoa(binToDec(input[27:32])) + ", [R" + strconv.Itoa(binToDec(input[22:27])) + ", #" + strconv.Itoa(binToDec(input[11:20])) + "]\n"
