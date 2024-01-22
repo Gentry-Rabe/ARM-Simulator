@@ -417,7 +417,6 @@ var running = true
 var breakCalled = false
 var cycle = 1
 var lineCounter = 0
-var pipelineDataset = make([]Data, 0)
 
 // pipeline queues
 var preIssue = []Instruction{

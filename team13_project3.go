@@ -28,6 +28,7 @@ var asmCode = make([]Instruction, 0)
 
 // dynamic array keeping track of data
 var dataset = make([]Data, 0)
+var pipelineDataset = make([]Data, 0)
 
 // static 2D array keeping track of all 32 registers
 var registers = [32]int{
@@ -89,6 +90,12 @@ func main() {
 
 	//DISPLAY CODE
 	dis(outFile)
+
+	//copies dataset to pipeline dataset without sharing Data structs, preventing bleed-over data
+	for _, element := range dataset {
+		temp := element
+		pipelineDataset = append(pipelineDataset, temp)
+	}
 
 	//SIMULATOR CODE
 	sim(simFile)

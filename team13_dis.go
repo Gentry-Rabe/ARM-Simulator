@@ -55,7 +55,7 @@ func twosComplementToDec(input string) int {
 }
 
 // gets opCode from binary
-func getOpCode(input string, count int, readingData *bool, asmCode *[]Instruction) string {
+func getOpCode(input string, count int, asmCode *[]Instruction) string {
 
 	retString := ""
 
@@ -144,7 +144,7 @@ func getOpCode(input string, count int, readingData *bool, asmCode *[]Instructio
 						*asmCode = append(*asmCode, Instruction{1872, binToDec(input[27:32]), binToDec(input[22:27]), binToDec(input[11:16]), 0, 0, 0, "EOR\tR" + strconv.Itoa(binToDec(input[27:32])) + ", R" + strconv.Itoa(binToDec(input[22:27])) + ", R" + strconv.Itoa(binToDec(input[11:16])), 0})
 
 					case opcode == 2038:
-						*readingData = true
+						readingData = true
 						retString = input + "\t" + strconv.Itoa(count) + "\tBREAK\n"
 						retString = input[0:8] + " " + input[8:11] + " " + input[11:16] + " " + input[16:21] + " " + input[21:26] + " " + input[26:32] + "\t" + strconv.Itoa(count) + "\tBREAK\n"
 						*asmCode = append(*asmCode, Instruction{2038, 0, 0, 0, 0, 0, 0, "BREAK", 0})
@@ -174,8 +174,35 @@ func dis(outFile *os.File) {
 				if writeErr != nil {
 					log.Fatalf("Failed to write into file.")
 				}
+
+				//dataset = append(dataset, Data{96 + (i * 4), twosComplementToDec(iString)})
+				address := 96 + (i * 4)
+				if findIndex(address, dataset) != -1 {
+					newData := dataset
+					newData[findIndex(address, dataset)].value = twosComplementToDec(iString)
+					dataset = newData
+				} else {
+					if readStart {
+						startingAdd = address
+						readStart = false
+					}
+					noOffsetAddress := 0
+					for i := address; i > address-32; i -= 4 {
+						temp := i - startingAdd
+						if temp%32 == 0 {
+							noOffsetAddress = temp
+						}
+					}
+					noOffsetAddress += startingAdd
+					for i := 0; i < 8; i++ {
+						dataset = append(dataset, Data{noOffsetAddress + (i * 4), 0})
+					}
+					newData := dataset
+					newData[findIndex(address, dataset)].value = twosComplementToDec(iString)
+					dataset = newData
+				}
 			} else {
-				_, writeErr := io.WriteString(outFile, getOpCode(iString, 96+(i*4), &readingData, &asmCode))
+				_, writeErr := io.WriteString(outFile, getOpCode(iString, 96+(i*4), &asmCode))
 				if writeErr != nil {
 					log.Fatalf("Failed to write into file.")
 				}

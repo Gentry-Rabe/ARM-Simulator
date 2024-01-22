@@ -6,7 +6,7 @@ import (
 	"strconv"
 )
 
-func readInstruction(instruction Instruction, pc *int, registers *[32]int, cycle *int, simFile *os.File, dataset *[]Data) {
+func readInstruction(instruction Instruction, pc *int, registers *[32]int, cycle *int, simFile *os.File) {
 	switch instruction.opCode {
 	//ADD
 	case 1112:
@@ -31,24 +31,24 @@ func readInstruction(instruction Instruction, pc *int, registers *[32]int, cycle
 		registers[instruction.destination] = registers[instruction.r1] ^ registers[instruction.r2]
 		//B
 	case 5:
-		printSim(instruction, *registers, *cycle, simFile, *dataset)
+		printSim(instruction, *registers, *cycle, simFile)
 		*pc += instruction.immediate
 		//CBZ
 	case 180:
 		if registers[instruction.r1] == 0 {
-			printSim(instruction, *registers, *cycle, simFile, *dataset)
+			printSim(instruction, *registers, *cycle, simFile)
 			*pc += instruction.immediate
 		} else {
-			printSim(instruction, *registers, *cycle, simFile, *dataset)
+			printSim(instruction, *registers, *cycle, simFile)
 			*pc++
 		}
 		//CBNZ
 	case 181:
 		if registers[instruction.r1] != 0 {
-			printSim(instruction, *registers, *cycle, simFile, *dataset)
+			printSim(instruction, *registers, *cycle, simFile)
 			*pc += instruction.immediate
 		} else {
-			printSim(instruction, *registers, *cycle, simFile, *dataset)
+			printSim(instruction, *registers, *cycle, simFile)
 			*pc++
 		}
 		//LSR
@@ -62,10 +62,10 @@ func readInstruction(instruction Instruction, pc *int, registers *[32]int, cycle
 		registers[instruction.destination] = registers[instruction.r1] >> registers[instruction.r2]
 		//STUR
 	case 1984:
-		if findIndex(registers[instruction.r2]+(instruction.immediate*4), *dataset) != -1 {
-			newData := *dataset
-			newData[findIndex(registers[instruction.r2]+(instruction.immediate*4), *dataset)].value = registers[instruction.r1]
-			*dataset = newData
+		if findIndex(registers[instruction.r2]+(instruction.immediate*4), dataset) != -1 {
+			newData := dataset
+			newData[findIndex(registers[instruction.r2]+(instruction.immediate*4), dataset)].value = registers[instruction.r1]
+			dataset = newData
 		} else {
 			if readStart {
 				startingAdd = registers[instruction.r2] + (instruction.immediate * 4)
@@ -81,16 +81,16 @@ func readInstruction(instruction Instruction, pc *int, registers *[32]int, cycle
 			}
 			noOffsetAddress += startingAdd
 			for i := 0; i < 8; i++ {
-				*dataset = append(*dataset, Data{noOffsetAddress + (i * 4), 0})
+				dataset = append(dataset, Data{noOffsetAddress + (i * 4), 0})
 			}
-			newData := *dataset
-			newData[findIndex(registers[instruction.r2]+(instruction.immediate*4), *dataset)].value = registers[instruction.r1]
-			*dataset = newData
+			newData := dataset
+			newData[findIndex(registers[instruction.r2]+(instruction.immediate*4), dataset)].value = registers[instruction.r1]
+			dataset = newData
 		}
 		//LDUR
 	case 1986:
-		newData := *dataset
-		indexForLoad := findIndex(registers[instruction.r1]+(instruction.immediate*4), *dataset)
+		newData := dataset
+		indexForLoad := findIndex(registers[instruction.r1]+(instruction.immediate*4), dataset)
 		if indexForLoad != -1 {
 			registers[instruction.destination] = newData[indexForLoad].value
 		} else {
@@ -98,7 +98,7 @@ func readInstruction(instruction Instruction, pc *int, registers *[32]int, cycle
 		}
 		//BREAK
 	case 2038:
-		printSim(instruction, *registers, *cycle, simFile, *dataset)
+		printSim(instruction, *registers, *cycle, simFile)
 		*pc = -1
 	default:
 		*pc++
@@ -106,14 +106,14 @@ func readInstruction(instruction Instruction, pc *int, registers *[32]int, cycle
 	}
 	//this order of execution -> print -> PC will guarantee that the sim will run in the correct order
 	if instruction.opCode != 5 && instruction.opCode != 180 && instruction.opCode != 181 && instruction.opCode != 2038 {
-		printSim(instruction, *registers, *cycle, simFile, *dataset)
+		printSim(instruction, *registers, *cycle, simFile)
 		*pc++
 	}
 	*cycle++
 }
 
 // outputs simulator to file
-func printSim(instruction Instruction, registers [32]int, cycle int, simFile *os.File, dataset []Data) {
+func printSim(instruction Instruction, registers [32]int, cycle int, simFile *os.File) {
 	//line divider
 	_, err := io.WriteString(simFile, "====================\n")
 	if err != nil {
@@ -160,11 +160,11 @@ func printSim(instruction Instruction, registers [32]int, cycle int, simFile *os
 	if err != nil {
 		return
 	}
-	for i := range dataset {
+	for i, element := range dataset {
 		if i%8 == 0 {
-			_, err = io.WriteString(simFile, strconv.Itoa(dataset[i].address)+": ")
+			_, err = io.WriteString(simFile, strconv.Itoa(element.address)+": ")
 		}
-		_, err = io.WriteString(simFile, "\t"+strconv.Itoa(dataset[i].value))
+		_, err = io.WriteString(simFile, "\t"+strconv.Itoa(element.value))
 		if i%8 == 7 {
 			_, err = io.WriteString(simFile, "\n")
 		}
@@ -180,6 +180,7 @@ func findIndex(target int, funcDataset []Data) int {
 	for i := range funcDataset {
 		if funcDataset[i].address == target {
 			retInt = i
+			break
 		}
 	}
 	return retInt
@@ -190,7 +191,7 @@ func sim(simFile *os.File) {
 	cycle := 1
 	for {
 		if pc != -1 {
-			readInstruction(asmCode[pc], &pc, &registers, &cycle, simFile, &dataset)
+			readInstruction(asmCode[pc], &pc, &registers, &cycle, simFile)
 		} else {
 			break
 		}
